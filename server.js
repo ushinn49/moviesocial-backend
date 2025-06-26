@@ -12,6 +12,7 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://moviesocial.netlify.app', // Netlify production frontend
       process.env.CLIENT_URL
     ].filter(Boolean); // 过滤掉undefined值
 
@@ -60,6 +61,7 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.log('Allowed origins:', [
     'http://localhost:3000',
     'http://localhost:3001',
+    'https://moviesocial.netlify.app', // Netlify production frontend
     process.env.CLIENT_URL
   ].filter(Boolean));
 })
