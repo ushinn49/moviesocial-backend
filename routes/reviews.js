@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Review = require('../models/Review');
-const { auth } = require('../middleware/auth');
+const { auth, requireCritic } = require('../middleware/auth');
 
 // Create review
 router.post('/', auth, async (req, res) => {
@@ -24,7 +24,8 @@ router.post('/', auth, async (req, res) => {
       movieTitle,
       moviePoster,
       rating,
-      reviewText
+      reviewText,
+      isFeatured: req.userRole === 'critic'
     });
 
     await review.save();
@@ -52,7 +53,7 @@ router.get('/movie/:movieId', async (req, res) => {
 router.get('/recent', async (req, res) => {
   try {
     const reviews = await Review.find()
-      .populate('user', 'username avatar')
+      .populate('user', 'username avatar role')
       .sort('-createdAt')
       .limit(10);
     res.json(reviews);
@@ -127,6 +128,119 @@ router.post('/:id/like', auth, async (req, res) => {
 
     await review.save();
     res.json({ likes: review.likes.length });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete like
+router.delete('/:id/like', auth, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+    
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    review.likes = review.likes.filter(userId => userId.toString() !== req.userId);
+    await review.save();
+    
+    res.json({ likes: review.likes.length });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Add tags to review
+router.post('/:id/tags', auth, requireCritic, async (req, res) => {
+  try {
+    const { tags } = req.body;
+    
+    if (!tags || !Array.isArray(tags)) {
+      return res.status(400).json({ message: 'Tags must be an array' });
+    }
+    
+    const review = await Review.findById(req.params.id);
+    
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    if (review.user.toString() !== req.userId) {
+      return res.status(403).json({ message: 'You can only add tags to your own reviews' });
+    }
+    
+    review.criticTags = tags;
+    await review.save();
+    
+    res.json(review);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Feature review
+router.put('/:id/feature', auth, requireCritic, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+    
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    if (review.user.toString() !== req.userId) {
+      return res.status(403).json({ message: 'You can only feature your own reviews' });
+    }
+    
+    review.isFeatured = true;
+    await review.save();
+    
+    res.json(review);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get featured reviews
+router.get('/featured', async (req, res) => {
+  try {
+    const reviews = await Review.find({ isFeatured: true })
+      .populate('user', 'username avatar role')
+      .sort('-createdAt');
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 影评人专属: 添加详细评分
+router.post('/:id/critic-details', auth, requireCritic, async (req, res) => {
+  try {
+    const { screenplay, acting, cinematography, soundtrack, directing } = req.body;
+    
+    const review = await Review.findById(req.params.id);
+    
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    // 只允许修改自己的评论
+    if (review.user.toString() !== req.userId) {
+      return res.status(403).json({ message: 'You can only add detailed ratings to your own reviews' });
+    }
+    
+    // 更新评论添加专业评分
+    review.criticDetails = {
+      screenplay: screenplay || review.criticDetails?.screenplay,
+      acting: acting || review.criticDetails?.acting,
+      cinematography: cinematography || review.criticDetails?.cinematography,
+      soundtrack: soundtrack || review.criticDetails?.soundtrack,
+      directing: directing || review.criticDetails?.directing
+    };
+    
+    await review.save();
+    
+    res.json(review);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

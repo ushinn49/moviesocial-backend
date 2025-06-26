@@ -32,6 +32,21 @@ const reviewSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  isFeatured: {
+    type: Boolean,
+    default: false
+  },
+  criticTags: [{
+    type: String,
+    enum: ['must-watch', 'overrated', 'underrated', 'classic', 'innovative', 'disappointing']
+  }],
+  criticDetails: {
+    screenplay: { type: Number, min: 1, max: 10 },
+    acting: { type: Number, min: 1, max: 10 },
+    cinematography: { type: Number, min: 1, max: 10 },
+    soundtrack: { type: Number, min: 1, max: 10 },
+    directing: { type: Number, min: 1, max: 10 }
+  },
   createdAt: {
     type: Date,
     default: Date.now
